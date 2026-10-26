@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#3fa2ee">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Arnesh Flappy 3D">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Flappy Bird 3D by Arnesh Mandal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0b3a4a;
+    --panel: rgba(9, 46, 60, 0.86);
+    --sheet: #0c3546;
+    --panel-edge: rgba(255, 255, 255, 0.22);
+    --row: rgba(255, 255, 255, 0.07);
+    --gold: #ffd23f;
+    --text: #ffffff;
+    --muted: #b9dce8;
+    --sky: #9fd8f0;
+    --btn-bg: #ffd23f;
+    --btn-text: #0b3a4a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --panel: rgba(5, 26, 36, 0.9);
+      --sheet: #06212d;
+      --panel-edge: rgba(255, 255, 255, 0.16);
+      --sky: #2a6f9c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --panel: rgba(5, 26, 36, 0.9);
+    --sheet: #06212d;
+    --panel-edge: rgba(255, 255, 255, 0.16);
+    --sky: #2a6f9c;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--sky);
+    color: var(--text);
+    font-family: 'Lilita One', 'Trebuchet MS', 'Arial Rounded MT Bold', system-ui, sans-serif;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  canvas#c {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+  button, input { font-family: inherit; }
+
+  /* HUD */
+  .hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #score {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    left: 0; right: 0;
+    text-align: center;
+    font-size: clamp(64px, 18vw, 110px);
+    line-height: 1;
+    color: #fff;
+    -webkit-text-stroke: 9px var(--ink);
+    paint-order: stroke fill;
+    text-shadow: 0 6px 0 var(--ink);
+    letter-spacing: 1px;
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  #score.on { opacity: 1; }
+  #score.bump { animation: bump .22s ease-out; }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
+  #lvlTag {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + clamp(84px, 24vw, 132px));
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 19px;
+    color: #fff;
+    text-shadow: 0 2px 0 var(--ink), 0 0 6px var(--ink);
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  #lvlTag.on { opacity: 1; }
+  #mute {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    right: 12px;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: 2px solid var(--panel-edge);
+    background: var(--panel);
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    pointer-events: auto;
+    cursor: pointer;
+    padding: 0;
+  }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    top: 34%;
+    transform: translate(-50%, 0);
+    max-width: 86vw;
+    padding: 12px 22px;
+    border-radius: 18px;
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    font-size: 22px;
+    text-align: center;
+    color: var(--gold);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  #toast.on { opacity: 1; }
+
+  /* Panels */
+  .panel {
+    position: fixed;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: min(88vw, 380px);
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s ease;
+  }
+  .panel.show { opacity: 1; }
+  #ready { top: calc(env(safe-area-inset-top, 0px) + 11%); }
+  #ready h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: clamp(42px, 13vw, 66px);
+    line-height: .95;
+    color: var(--gold);
+    -webkit-text-stroke: 8px var(--ink);
+    paint-order: stroke fill;
+    text-shadow: 0 6px 0 var(--ink);
+  }  .by {
+    margin-top: 12px;
+    font-size: clamp(20px, 5.6vw, 26px);
+    color: #fff;
+    letter-spacing: .5px;
+    text-shadow: 0 2px 0 var(--ink), 0 0 8px var(--ink);
+  }
+  .chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; }
+  .chip {
+    padding: 6px 14px;
+    font-size: 17px;
+    background: var(--panel);
+    border: 2px solid var(--panel-edge);
+    border-radius: 999px;
+  }
+  .chip.gold { color: var(--gold); }
+  #ready .hint {
+    display: inline-block;
+    margin: 18px 0 8px;
+    padding: 12px 22px;
+    font-size: 22px;
+    background: var(--panel);
+    border: 2px solid var(--panel-edge);
+    border-radius: 999px;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { transform: scale(1.06); } }
+  #ready .best {
+    margin: 4px 0 0;
+    font-size: 19px;
+    text-shadow: 0 2px 0 var(--ink), 0 0 6px var(--ink);
+  }
+  #over {
+    top: 47%;
+    transform: translate(-50%, -50%);
+    padding: 22px 20px 20px;
+    background: var(--panel);
+    border: 2px solid var(--panel-edge);
+    border-radius: 26px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  }
+  #over.show { pointer-events: auto; }
+  #over h2 { margin: 0 0 10px; font-weight: 400; font-size: 38px; color: var(--gold); }
+  .row { display: flex; justify-content: center; gap: 34px; margin-bottom: 10px; }
+  .row div { display: flex; flex-direction: column; gap: 2px; }
+  .row span { font-size: 16px; color: var(--muted); }
+  .row b { font-weight: 400; font-size: 44px; line-height: 1; }
+  .line { min-height: 22px; margin: 0 0 8px; font-size: 18px; color: var(--muted); }
+  .line.gold { color: var(--gold); }
+  .medal {
+    width: 54px; height: 54px; margin: 0 auto 12px;
+    border-radius: 50%;
+    display: none;
+    place-items: center;
+    font-size: 26px;
+    color: var(--ink);
+    border: 4px solid rgba(255,255,255,.55);
+    box-shadow: inset 0 -6px 0 rgba(0,0,0,.18);
+  }
+  .medal.on { display: grid; }
+  .medal.bronze { background: #d98a4a; }
+  .medal.silver { background: #d7e2ea; }
+  .medal.gold   { background: #ffd23f; }
+  .btn {
+    font-size: 24px;
+    padding: 11px 30px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    box-shadow: 0 6px 0 #c99a12;
+    cursor: pointer;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #c99a12; }
+  .btn.alt { background: #7ee0b0; box-shadow: 0 6px 0 #3fa878; margin-top: 12px; display: none; }
+  .btn.alt.on { display: inline-block; }
+  .btn.alt:active { box-shadow: 0 2px 0 #3fa878; }
+
+  /* Dock */
+  .dock {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 12px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  .dock.show { opacity: 1; }
+  .dock.show button { pointer-events: auto; }
+  .pill {
+    font-size: 18px;
+    padding: 11px 16px;
+    color: #fff;
+    background: var(--panel);
+    border: 2px solid var(--panel-edge);
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .pill:active { transform: translateY(2px); }
+
+  /* Sheets */
+  .sheet-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 10, 20, .55);
+  }
+  .sheet-wrap.open { display: flex; }
+  .sheet {
+    width: min(100%, 520px);
+    max-height: 88%;
+    display: flex;
+    flex-direction: column;
+    background: var(--sheet);
+    border: 2px solid var(--panel-edge);
+    border-bottom: 0;
+    border-radius: 26px 26px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+  }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 8px; }
+  .sheet-head h3 { margin: 0; font-weight: 400; font-size: 28px; color: var(--gold); }
+  .x {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 2px solid var(--panel-edge);
+    background: transparent; color: #fff; font-size: 18px; cursor: pointer;
+  }
+  .sheet-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 4px 18px 16px;
+    min-height: 120px;
+  }
+  .sheet-note { margin: 10px 0 0; font-size: 16px; color: var(--muted); line-height: 1.35; }
+
+  .lvl-list { display: grid; gap: 10px; }
+  .lvl {
+    display: flex; align-items: center; gap: 14px;
+    width: 100%;
+    padding: 10px 14px;
+    text-align: left;
+    color: #fff;
+    background: var(--row);
+    border: 2px solid transparent;
+    border-radius: 18px;
+    cursor: pointer;
+  }
+  .lvl.on { border-color: var(--gold); }
+  .lvl:disabled { opacity: .5; cursor: default; }
+  .lvl-n {
+    flex: none;
+    width: 46px; height: 46px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 24px; color: var(--ink);
+  }
+  .lvl-m { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .lvl-m b { font-weight: 400; font-size: 21px; }
+  .lvl-m small { font-size: 15px; color: var(--muted); }
+
+  .tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 18px 10px; touch-action: pan-x; -webkit-overflow-scrolling: touch; }
+  .tab {
+    flex: none;
+    padding: 7px 14px; font-size: 17px; color: #fff;
+    background: var(--row);
+    border: 2px solid transparent; border-radius: 999px; cursor: pointer;
+  }
+  .tab.on { background: var(--gold); color: var(--ink); }
+  .lb-list { display: grid; gap: 6px; }
+  .lb-row {
+    display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px;
+    padding: 9px 12px; background: var(--row); border-radius: 14px; font-size: 19px;
+  }
+  .lb-row .rk { color: var(--muted); }
+  .lb-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-row.me { background: rgba(255, 210, 63, .2); box-shadow: inset 0 0 0 2px var(--gold); }
+  .lb-row.top1 .rk { color: #ffd23f; }
+  .lb-row.top2 .rk { color: #d7e2ea; }
+  .lb-row.top3 .rk { color: #e39a5c; }
+  .lb-empty { padding: 18px 4px; text-align: center; color: var(--muted); font-size: 18px; line-height: 1.35; }
+  .lb-foot { padding: 10px 18px 14px; border-top: 2px solid var(--panel-edge); }
+  #lbMe { margin: 0 0 10px; font-size: 20px; color: var(--gold); text-align: center; }
+  .nick { display: flex; gap: 8px; }
+  .nick input {
+    flex: 1; min-width: 0;
+    padding: 10px 14px; font-size: 18px;
+    color: #fff; background: var(--row);
+    border: 2px solid var(--panel-edge); border-radius: 14px;
+    -webkit-user-select: text; user-select: text;
+  }
+  .nick button { padding: 10px 18px; font-size: 18px; border: 0; border-radius: 14px; background: var(--gold); color: var(--ink); cursor: pointer; }
+
+  .speed-big { text-align: center; font-size: 54px; line-height: 1; margin: 6px 0 2px; }
+  .speed-name { text-align: center; font-size: 20px; color: var(--gold); margin-bottom: 14px; }
+  #speedRange { width: 100%; accent-color: var(--gold); touch-action: pan-x; height: 34px; }
+  .speed-presets { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }  #flash {
+    position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none;
+    transition: opacity .35s ease-out;
+  }
+  #flash.on { opacity: .85; transition: none; }
+  #nogl {
+    position: fixed; inset: 0; display: none; place-items: center; padding: 24px;
+    text-align: center; font-size: 22px; background: var(--ink);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #ready .hint { animation: none; }
+    #score.bump { animation: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<div class="hud">
+  <div id="score">0</div>
+  <div id="lvlTag"></div>
+  <button id="mute" type="button" aria-label="Turn sound off">🔊</button>
+</div>
+<div id="toast" role="status"></div>
+
+<section id="ready" class="panel show" aria-live="polite">
+  <h1>Flappy Bird 3D</h1>
+  <div class="by">by Arnesh Mandal</div>
+  <div class="chips">
+    <span class="chip gold" id="chipLevel">Level 1</span>
+    <span class="chip" id="chipGoal">Reach 10</span>
+    <span class="chip" id="chipSpeed">Speed 1.0×</span>
+  </div>
+  <div class="hint">Tap anywhere to flap</div>
+  <p class="best">Best on this level: <b id="bestReady">0</b></p>
+</section>
+
+<section id="over" class="panel" aria-live="polite">
+  <h2 id="overTitle">Game over</h2>
+  <div class="row">
+    <div><span>Score</span><b id="finalScore">0</b></div>
+    <div><span>Best</span><b id="finalBest">0</b></div>
+  </div>
+  <p class="line gold" id="newbest"></p>
+  <div id="medal" class="medal">★</div>
+  <p class="line" id="rankLine"></p>
+  <button id="again" class="btn" type="button">Play again</button><br>
+  <button id="nextLevel" class="btn alt" type="button">Next level ▸</button>
+</section>
+
+<div class="dock" id="dock">
+  <button class="pill" type="button" data-open="levels">🗺 Levels</button>
+  <button class="pill" type="button" data-open="board">🏆 Leaderboard</button>
+  <button class="pill" type="button" data-open="speed">⚡ Speed</button>
+</div>
+
+<!-- Levels -->
+<div class="sheet-wrap" id="sheet-levels">
+  <div class="sheet" role="dialog" aria-label="Choose level">
+    <div class="sheet-head"><h3>Choose level</h3><button class="x" type="button" data-close aria-label="Close">✕</button></div>
+    <div class="sheet-body">
+      <div id="lvlList" class="lvl-list"></div>
+      <p class="sheet-note">Reach the goal score on a level to unlock the next one.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Leaderboard -->
+<div class="sheet-wrap" id="sheet-board">
+  <div class="sheet" role="dialog" aria-label="Leaderboard">
+    <div class="sheet-head"><h3>🏆 Leaderboard</h3><button class="x" type="button" data-close aria-label="Close">✕</button></div>
+    <div class="tabs" id="lbTabs"></div>
+    <div class="sheet-body"><div id="lbList" class="lb-list"></div></div>
+    <div class="lb-foot">
+      <p id="lbMe"></p>
+      <div class="nick">
+        <input id="nickInput" type="text" maxlength="14" placeholder="Your nickname" autocomplete="off" aria-label="Your nickname">
+        <button id="nickSave" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Speed -->
+<div class="sheet-wrap" id="sheet-speed">
+  <div class="sheet" role="dialog" aria-label="Hurdle speed">
+    <div class="sheet-head"><h3>⚡ Hurdle speed</h3><button class="x" type="button" data-close aria-label="Close">✕</button></div>
+    <div class="sheet-body">
+      <div class="speed-big" id="speedBig">1.0×</div>
+      <div class="speed-name" id="speedName">Normal</div>
+      <input id="speedRange" type="range" min="0.6" max="1.6" step="0.1" value="1" aria-label="Hurdle speed multiplier">
+      <div class="speed-presets" id="speedPresets"></div>
+      <p class="sheet-note" id="speedNote"></p>
+    </div>
+  </div>
+</div>
+
+<div id="nogl">Your browser could not start 3D graphics (WebGL). Try updating your browser or enabling hardware acceleration.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ------------------------------------------------------------------ *
+   *  Renderer
+   * ------------------------------------------------------------------ */
+  var canvas = $('c');
+  var renderer;
+  try {
+    if (typeof THREE === 'undefined') throw new Error('three missing');
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+  } catch (err) {
+    $('nogl').style.display = 'grid';
+    return;
+  }
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(50, 1, 0.5, 400);
+
+  function C(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
+  function mat(hex, rough, metal) {
+    return new THREE.MeshStandardMaterial({ color: C(hex), roughness: rough == null ? 0.5 : rough, metalness: metal || 0 });
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  /* ------------------------------------------------------------------ *
+   *  Constants
+   * ------------------------------------------------------------------ */
+  var GROUND_Y = -6.5;
+  var GRAVITY  = 28;
+  var FLAP_V   = 9.0;
+  var MAX_FALL = -17;
+  var CEILING  = 8.2;
+  var BIRD_R   = 0.48;
+  var PIPE_HW  = 1.15;
+  var LIP_HW   = 1.4;
+  var LIP_H    = 0.75;
+  var SPACING  = 8.6;
+  var SPAWN_X  = 14;
+    /* ------------------------------------------------------------------ *
+   *  Level + theme data
+   * ------------------------------------------------------------------ */
+  var THEMES = {
+    day: {
+      sky: [[0, '#2f93ea'], [0.45, '#7cc8f4'], [0.78, '#c9e9f6'], [1, '#fff1d2']],
+      fog: '#c9e9f6', hemiSky: '#ffffff', hemiGround: '#9ad07a', hemiI: 0.85, sunCol: '#fff4dc', sunI: 0.85,
+      g1: '#86dc58', g2: '#72c847', gSide: '#d9b56b', edge: '#4fae35',
+      pipe: '#6cc24a', lip: '#58ad3b', ring: '#3f8a2b', pipeEm: '#000000', pipeEmI: 0, pipeR: 0.34, pipeM: 0.06,
+      hills: ['#7fcaa8', '#6fbb9d', '#8fd3b0', '#65b394'],
+      cloud: '#ffffff', cloudEm: '#9fb8c8', cloudEmI: 0.55,
+      disc: '#fff6cf', glow: '#fff1b0', discPos: [8, 26, -110], stars: false
+    },
+    sunset: {
+      sky: [[0, '#4a3a92'], [0.4, '#c8558f'], [0.72, '#ff9a5a'], [1, '#ffd98a']],
+      fog: '#f2a877', hemiSky: '#ffd2a8', hemiGround: '#9a6a4a', hemiI: 0.8, sunCol: '#ffae6a', sunI: 0.9,
+      g1: '#c9b45a', g2: '#b8a34c', gSide: '#a86b3c', edge: '#9a8a3a',
+      pipe: '#d2683a', lip: '#b8522c', ring: '#8a3a1e', pipeEm: '#000000', pipeEmI: 0, pipeR: 0.45, pipeM: 0.05,
+      hills: ['#9b5f7a', '#84507a', '#a8667e', '#744570'],
+      cloud: '#ffd6c8', cloudEm: '#d98aa0', cloudEmI: 0.6,
+      disc: '#ffe3a8', glow: '#ffb070', discPos: [4, 9, -110], stars: false
+    },
+    night: {
+      sky: [[0, '#040a22'], [0.45, '#0d1b4a'], [0.78, '#1c2f6b'], [1, '#2c4285']],
+      fog: '#1b2b62', hemiSky: '#7f98e6', hemiGround: '#1a2233', hemiI: 0.62, sunCol: '#9db8ff', sunI: 0.6,
+      g1: '#2f7a5a', g2: '#286b4e', gSide: '#3a3350', edge: '#226048',
+      pipe: '#3fbf9c', lip: '#33a888', ring: '#237a62', pipeEm: '#0a4a3a', pipeEmI: 0.45, pipeR: 0.4, pipeM: 0.08,
+      hills: ['#1d3a6e', '#22457d', '#182f5e', '#274d88'],
+      cloud: '#8a9fd8', cloudEm: '#33498a', cloudEmI: 0.5,
+      disc: '#f4f6ff', glow: '#9db8ff', discPos: [-6, 24, -110], stars: true
+    },
+    ice: {
+      sky: [[0, '#0a2050'], [0.4, '#2f78a8'], [0.75, '#8fe0e6'], [1, '#e8fbff']],
+      fog: '#bfeaf0', hemiSky: '#e6fbff', hemiGround: '#9ec5dc', hemiI: 0.9, sunCol: '#e8fbff', sunI: 0.85,
+      g1: '#f0f9ff', g2: '#dcecf7', gSide: '#9ec5dc', edge: '#c3e0f2',
+      pipe: '#7fd6f0', lip: '#5cbde0', ring: '#3a94b8', pipeEm: '#0a3a55', pipeEmI: 0.25, pipeR: 0.15, pipeM: 0.3,
+      hills: ['#b8d8ee', '#a6cbe6', '#cbe6f5', '#9cc2de'],
+      cloud: '#ffffff', cloudEm: '#a9d0e6', cloudEmI: 0.6,
+      disc: '#f2fdff', glow: '#cff5ff', discPos: [10, 24, -110], stars: false
+    },
+    neon: {
+      sky: [[0, '#05010f'], [0.4, '#1a0638'], [0.75, '#4a0a6e'], [1, '#8a1f9a']],
+      fog: '#2c0c50', hemiSky: '#b06bff', hemiGround: '#1a0a2a', hemiI: 0.72, sunCol: '#ff7ad9', sunI: 0.8,
+      g1: '#2b1663', g2: '#3a1c86', gSide: '#1a0d40', edge: '#ff2fd0',
+      pipe: '#ff3fb4', lip: '#d02b96', ring: '#8a1a66', pipeEm: '#6a0a4a', pipeEmI: 0.8, pipeR: 0.3, pipeM: 0.15,
+      hills: ['#41206b', '#2f1a5a', '#4c2680', '#38186a'],
+      cloud: '#c98aff', cloudEm: '#6a2aa8', cloudEmI: 0.7,
+      disc: '#7cf4ff', glow: '#3ad0ff', discPos: [7, 22, -110], stars: true
+    }
+  };
+
+  var LEVELS = [
+    null,
+    { name: 'Sunny Meadow',  goal: 10, base: 4.0, gap: 4.9, ramp: 0.05, move: 0,   theme: 'day',    accent: '#ffd23f' },
+    { name: 'Sunset Canyon', goal: 15, base: 4.6, gap: 4.7, ramp: 0.06, move: 0,   theme: 'sunset', accent: '#ff9a5a' },
+    { name: 'Moonlit Night', goal: 20, base: 5.0, gap: 4.5, ramp: 0.06, move: 0,   theme: 'night',  accent: '#9db8ff' },
+    { name: 'Frozen Peaks',  goal: 25, base: 5.4, gap: 4.4, ramp: 0.06, move: 0.8, theme: 'ice',    accent: '#7fe3f5' },
+    { name: 'Neon Galaxy',   goal: 30, base: 5.8, gap: 4.3, ramp: 0.06, move: 1.2, theme: 'neon',   accent: '#ff5fd0' }
+  ];
+  var MAX_LEVEL = 5;
+
+  /* ------------------------------------------------------------------ *
+   *  Saved progress (local device)
+   * ------------------------------------------------------------------ */
+  var prog = { level: 1, maxLevel: 1, best: [0, 0, 0, 0, 0, 0], speedMult: 1.0, nick: '' };
+  (function loadProg() {
+    try {
+      var raw = localStorage.getItem('flappy3d-v2');
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (d && typeof d === 'object') {
+        prog.level = clamp(parseInt(d.level, 10) || 1, 1, MAX_LEVEL);
+        prog.maxLevel = clamp(parseInt(d.maxLevel, 10) || 1, 1, MAX_LEVEL);
+        if (prog.level > prog.maxLevel) prog.level = prog.maxLevel;
+        for (var i = 1; i <= MAX_LEVEL; i++) prog.best[i] = Math.max(0, parseInt(d.best && d.best[i], 10) || 0);
+        var sm = parseFloat(d.speedMult);
+        prog.speedMult = isFinite(sm) ? clamp(Math.round(sm * 10) / 10, 0.6, 1.6) : 1.0;
+        prog.nick = typeof d.nick === 'string' ? d.nick.slice(0, 14) : '';
+      }
+    } catch (e) {}
+  })();
+  function saveProg() { try { localStorage.setItem('flappy3d-v2', JSON.stringify(prog)); } catch (e) {} }
+  function totalPoints() {
+    var t = 0;
+    for (var i = 1; i <= MAX_LEVEL; i++) t += prog.best[i];
+    return t;
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Sky, lights, fog
+   * ------------------------------------------------------------------ */
+  var skyCv = document.createElement('canvas');
+  skyCv.width = 4; skyCv.height = 512;
+  var skyCtx = skyCv.getContext('2d');
+  var skyTex = new THREE.CanvasTexture(skyCv);
+  skyTex.encoding = THREE.sRGBEncoding;
+  scene.background = skyTex;
+  function drawSky(stops) {
+    var g = skyCtx.createLinearGradient(0, 0, 0, 512);
+    stops.forEach(function (s) { g.addColorStop(s[0], s[1]); });
+    skyCtx.fillStyle = g;
+    skyCtx.fillRect(0, 0, 4, 512);
+    skyTex.needsUpdate = true;
+  }
+  scene.fog = new THREE.Fog(C('#c9e9f6'), 40, 150);
+
+  var hemi = new THREE.HemisphereLight(C('#ffffff'), C('#9ad07a'), 0.85);
+  scene.add(hemi);
+  var sun = new THREE.DirectionalLight(C('#fff4dc'), 0.85);
+  sun.position.set(-10, 26, 16);
+  sun.target.position.set(4, 0, 0);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -26; sun.shadow.camera.right = 26;
+  sun.shadow.camera.top = 26; sun.shadow.camera.bottom = -26;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 90;
+  sun.shadow.bias = -0.0006;
+  sun.shadow.normalBias = 0.03;
+  scene.add(sun);
+  scene.add(sun.target);
+
+  var sunDisc = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 24), new THREE.MeshBasicMaterial({ color: C('#fff6cf'), fog: false }));
+  sunDisc.position.set(8, 26, -110);
+  scene.add(sunDisc);
+  var sunGlow = new THREE.Mesh(new THREE.SphereGeometry(13, 32, 24), new THREE.MeshBasicMaterial({ color: C('#fff1b0'), fog: false, transparent: true, opacity: 0.28 }));
+  sunGlow.position.copy(sunDisc.position);
+  scene.add(sunGlow);
+
+  // stars (visible on night-style levels)
+  var stars = (function () {
+    var n = 500, pos = new Float32Array(n * 3);
+    for (var i = 0; i < n; i++) {
+      pos[i * 3] = rand(-160, 160);
+      pos[i * 3 + 1] = rand(4, 100);
+      pos[i * 3 + 2] = rand(-150, -125);
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    var pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.9 }));
+    pts.visible = false;
+    scene.add(pts);
+    return pts;
+  })();
+    /* ------------------------------------------------------------------ *
+   *  Ground
+   * ------------------------------------------------------------------ */
+  var groundCv = document.createElement('canvas');
+  groundCv.width = 128; groundCv.height = 128;
+  var groundCtx = groundCv.getContext('2d');
+  var groundTex = new THREE.CanvasTexture(groundCv);
+  groundTex.encoding = THREE.sRGBEncoding;
+  groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
+  groundTex.repeat.set(40, 35);
+  groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  function drawGround(c1, c2) {
+    groundCtx.fillStyle = c1; groundCtx.fillRect(0, 0, 128, 128);
+    groundCtx.fillStyle = c2; groundCtx.fillRect(0, 0, 64, 128);
+    groundCtx.fillStyle = 'rgba(255,255,255,0.06)'; groundCtx.fillRect(61, 0, 3, 128);
+    groundTex.needsUpdate = true;
+  }
+
+  var groundTop = new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.95 });
+  var groundSide = mat('#d9b56b', 0.9);
+  var ground = new THREE.Mesh(new THREE.BoxGeometry(160, 6, 140),
+    [groundSide, groundSide, groundTop, groundSide, groundSide, groundSide]);
+  ground.position.set(0, GROUND_Y - 3, -15);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  var edge = new THREE.Mesh(new THREE.BoxGeometry(160, 0.5, 1.2), mat('#4fae35', 0.8));
+  edge.position.set(0, GROUND_Y + 0.02, 12);
+  edge.receiveShadow = true;
+  scene.add(edge);
+
+  /* ------------------------------------------------------------------ *
+   *  Hills + clouds
+   * ------------------------------------------------------------------ */
+  var hills = [];
+  (function () {
+    for (var i = 0; i < 16; i++) {
+      var r = rand(13, 24);
+      var m = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 20), mat('#7fcaa8', 1));
+      m.scale.y = 0.5;
+      var h = rand(5, 11);
+      m.position.set(-80 + i * 11 + rand(-4, 4), GROUND_Y + h - r * 0.5, rand(-70, -46));
+      scene.add(m);
+      hills.push(m);
+    }
+  })();
+
+  var clouds = [];
+  var cloudMat = new THREE.MeshStandardMaterial({ color: C('#ffffff'), roughness: 1, emissive: C('#9fb8c8'), emissiveIntensity: 0.55 });
+  (function () {
+    var geo = new THREE.SphereGeometry(1, 20, 14);
+    for (var i = 0; i < 16; i++) {
+      var g = new THREE.Group();
+      var n = 4 + Math.floor(Math.random() * 3);
+      for (var j = 0; j < n; j++) {
+        var p = new THREE.Mesh(geo, cloudMat);
+        var s = rand(1.1, 2.2) * (j === Math.floor(n / 2) ? 1.3 : 1);
+        p.scale.set(s * 1.25, s * 0.85, s);
+        p.position.set((j - n / 2) * 1.6, rand(-0.2, 0.5), rand(-0.6, 0.6));
+        g.add(p);
+      }
+      g.position.set(rand(-60, 70), rand(6, 17), rand(-40, -12));
+      g.userData.v = rand(0.25, 0.8);
+      scene.add(g);
+      clouds.push(g);
+    }
+  })();
+
+  /* ------------------------------------------------------------------ *
+   *  Pipe materials (shared, recoloured per theme)
+   * ------------------------------------------------------------------ */
+  var pipeBodyGeo = new THREE.CylinderGeometry(PIPE_HW, PIPE_HW, 1, 40, 1);
+  var pipeLipGeo  = new THREE.CylinderGeometry(LIP_HW, LIP_HW, LIP_H, 40, 1);
+  var ringGeo     = new THREE.CylinderGeometry(LIP_HW + 0.02, LIP_HW + 0.02, 0.09, 40, 1);
+  var pipeBodyMat = mat('#6cc24a', 0.34, 0.06);
+  var pipeLipMat  = mat('#58ad3b', 0.34, 0.06);
+  var ringMat     = mat('#3f8a2b', 0.5);
+
+  /* ------------------------------------------------------------------ *
+   *  Apply a theme
+   * ------------------------------------------------------------------ */
+  function applyTheme(key) {
+    var t = THEMES[key];
+    drawSky(t.sky);
+    scene.fog.color.copy(C(t.fog));
+    hemi.color.copy(C(t.hemiSky));
+    hemi.groundColor.copy(C(t.hemiGround));
+    hemi.intensity = t.hemiI;
+    sun.color.copy(C(t.sunCol));
+    sun.intensity = t.sunI;
+    drawGround(t.g1, t.g2);
+    groundSide.color.copy(C(t.gSide));
+    edge.material.color.copy(C(t.edge));
+    [pipeBodyMat, pipeLipMat].forEach(function (m) {
+      m.roughness = t.pipeR; m.metalness = t.pipeM;
+      m.emissive.copy(C(t.pipeEm)); m.emissiveIntensity = t.pipeEmI;
+    });
+    pipeBodyMat.color.copy(C(t.pipe));
+    pipeLipMat.color.copy(C(t.lip));
+    ringMat.color.copy(C(t.ring));
+    hills.forEach(function (h, i) { h.material.color.copy(C(t.hills[i % t.hills.length])); });
+    cloudMat.color.copy(C(t.cloud));
+    cloudMat.emissive.copy(C(t.cloudEm));
+    cloudMat.emissiveIntensity = t.cloudEmI;
+    sunDisc.material.color.copy(C(t.disc));
+    sunGlow.material.color.copy(C(t.glow));
+    sunDisc.position.set(t.discPos[0], t.discPos[1], t.discPos[2]);
+    sunGlow.position.copy(sunDisc.position);
+    stars.visible = t.stars;
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Bird
+   * ------------------------------------------------------------------ */
+  var bird = new THREE.Group();
+  var wings = [];
+  (function () {
+    var body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 40, 30), mat('#ffcf2e', 0.42));
+    body.scale.set(1.12, 1, 0.98);
+    body.castShadow = true;
+    bird.add(body);
+
+    var belly = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 24), mat('#fff3c2', 0.6));
+    belly.scale.set(1.05, 0.8, 1.12);
+    belly.position.set(0.18, -0.24, 0);
+    belly.castShadow = true;
+    bird.add(belly);
+
+    [1, -1].forEach(function (s) {
+      var eye = new THREE.Mesh(new THREE.SphereGeometry(0.21, 24, 18), mat('#ffffff', 0.25));
+      eye.position.set(0.36, 0.24, 0.44 * s);
+      bird.add(eye);
+      var pupil = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), mat('#141414', 0.2));
+      pupil.position.set(0.45, 0.24, 0.55 * s);
+      bird.add(pupil);
+      var shine = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      shine.position.set(0.5, 0.29, 0.56 * s);
+      bird.add(shine);
+
+      var pivot = new THREE.Group();
+      pivot.position.set(-0.12, -0.02, 0.56 * s);
+      var wing = new THREE.Mesh(new THREE.SphereGeometry(0.4, 24, 16), mat('#ffb703', 0.5));
+      wing.scale.set(1.0, 0.24, 0.62);
+      wing.position.set(-0.08, 0, 0.22 * s);
+      wing.castShadow = true;
+      pivot.add(wing);
+      pivot.userData.s = s;
+      bird.add(pivot);
+      wings.push(pivot);
+    });
+
+    var beakTop = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.46, 24), mat('#ff8a1f', 0.4));
+    beakTop.rotation.z = -Math.PI / 2;
+    beakTop.position.set(0.86, 0.0, 0);
+    beakTop.scale.set(1, 1, 1.15);
+    beakTop.castShadow = true;
+    bird.add(beakTop);
+    var beakLow = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.34, 20), mat('#f2540d', 0.4));
+    beakLow.rotation.z = -Math.PI / 2;
+    beakLow.position.set(0.8, -0.13, 0);
+    bird.add(beakLow);
+
+    var tail = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.6, 5), mat('#e8492f', 0.5));
+    tail.rotation.z = Math.PI / 2 + 0.25;
+    tail.position.set(-0.82, 0.08, 0);
+    tail.scale.set(1, 1, 0.55);
+    tail.castShadow = true;
+    bird.add(tail);
+
+    for (var i = 0; i < 3; i++) {
+      var crest = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.3, 10), mat('#e8492f', 0.5));
+      crest.position.set(0.02 - i * 0.12, 0.66 - i * 0.03, 0);
+      crest.rotation.z = 0.35 + i * 0.25;
+      bird.add(crest);
+    }
+  })();
+  scene.add(bird);
+    /* ------------------------------------------------------------------ *
+   *  Pipes (built around gap centre; group.y = gap centre)
+   * ------------------------------------------------------------------ */
+  var pipes = [];
+  function makePipe(x, baseY, gap, amp) {
+    var g = new THREE.Group();
+    function add(geo, m, y, sy) {
+      var mesh = new THREE.Mesh(geo, m);
+      mesh.position.y = y;
+      if (sy != null) mesh.scale.y = sy;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      g.add(mesh);
+    }
+    var lo = -40, hi = 40, half = gap / 2;
+    var bb1 = -half - LIP_H;
+    add(pipeBodyGeo, pipeBodyMat, (lo + bb1) / 2, bb1 - lo);
+    add(pipeLipGeo, pipeLipMat, -half - LIP_H / 2);
+    add(ringGeo, ringMat, -half - LIP_H + 0.045);
+    var tb0 = half + LIP_H;
+    add(pipeBodyGeo, pipeBodyMat, (tb0 + hi) / 2, hi - tb0);
+    add(pipeLipGeo, pipeLipMat, half + LIP_H / 2);
+    add(ringGeo, ringMat, half + LIP_H - 0.045);
+    g.position.set(x, baseY, 0);
+    scene.add(g);
+    return { group: g, x: x, baseY: baseY, gapY: baseY, gap: gap, amp: amp, phase: rand(0, 6.28), scored: false };
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Particles
+   * ------------------------------------------------------------------ */
+  var partGeo = new THREE.SphereGeometry(1, 8, 6);
+  var parts = [];
+  function burst(n, x, y, hex, spd, size, life) {
+    for (var i = 0; i < n; i++) {
+      var m = new THREE.Mesh(partGeo, new THREE.MeshBasicMaterial({ color: C(hex), transparent: true }));
+      var s = size * (0.6 + Math.random() * 0.8);
+      m.scale.setScalar(s);
+      m.position.set(x, y, (Math.random() - 0.5) * 0.8);
+      scene.add(m);
+      var a = Math.random() * Math.PI * 2;
+      var v = spd * (0.4 + Math.random() * 0.8);
+      parts.push({ m: m, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life, max: life, s: s });
+    }
+  }
+  function updateParts(dt) {
+    for (var i = parts.length - 1; i >= 0; i--) {
+      var p = parts[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        scene.remove(p.m);
+        p.m.material.dispose();
+        parts.splice(i, 1);
+        continue;
+      }
+      p.vy -= 12 * dt;
+      p.m.position.x += p.vx * dt;
+      p.m.position.y += p.vy * dt;
+      var k = p.life / p.max;
+      p.m.material.opacity = k;
+      p.m.scale.setScalar(p.s * (0.4 + 0.6 * k));
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Audio
+   * ------------------------------------------------------------------ */
+  var actx = null, muted = false;
+  try { muted = localStorage.getItem('flappy3d-muted') === '1'; } catch (e) {}
+  function audio() {
+    if (!actx) {
+      try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+    }
+    if (actx && actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }
+    return actx;
+  }
+  function tone(f1, f2, dur, type, vol, delay) {
+    if (muted) return;
+    var a = audio();
+    if (!a) return;
+    var t = a.currentTime + (delay || 0);
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(f1, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
+    g.gain.setValueAtTime(vol || 0.1, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  var sfx = {
+    flap:  function () { tone(420, 780, 0.12, 'triangle', 0.2); },
+    score: function () { tone(880, 880, 0.08, 'square', 0.07); tone(1320, 1320, 0.14, 'square', 0.07, 0.08); },
+    hit:   function () { tone(320, 50, 0.35, 'sawtooth', 0.18); },
+    die:   function () { tone(240, 60, 0.5, 'triangle', 0.2, 0.15); },
+    level: function () { tone(523, 523, 0.12, 'square', 0.08); tone(659, 659, 0.12, 'square', 0.08, 0.12); tone(784, 784, 0.12, 'square', 0.08, 0.24); tone(1047, 1047, 0.3, 'square', 0.08, 0.36); }
+  };
+
+  /* ------------------------------------------------------------------ *
+   *  Game state
+   * ------------------------------------------------------------------ */
+  var state = 'ready';
+  var score = 0;
+  var by = 0, vy = 0;
+  var time = 0;
+  var wingPhase = 0;
+  var groundScroll = 0;
+  var lastGapY = 0.6;
+  var deadTapAt = 0;
+  var shake = 0;
+  var speed = 4;
+  var runMult = 1;
+  var cleared = false;
+  var modal = false;
+  var toastTimer = null;
+
+  function curLevel() { return LEVELS[prog.level]; }
+  function speedName(m) {
+    if (m < 0.8) return 'Chill';
+    if (m < 1.1) return 'Normal';
+    if (m < 1.4) return 'Fast';
+    return 'Insane';
+  }
+  function fmtMult(m) { return m.toFixed(1) + '×'; }
+
+  function toast(msg) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('on'); }, 2800);
+  }
+
+  function refreshReady() {
+    var L = curLevel();
+    $('chipLevel').textContent = 'Level ' + prog.level + ' · ' + L.name;
+    $('chipGoal').textContent = 'Reach ' + L.goal;
+    $('chipSpeed').textContent = 'Speed ' + fmtMult(prog.speedMult) + (prog.speedMult < 1 ? ' · practice' : '');
+    $('bestReady').textContent = prog.best[prog.level];
+  }
+
+  function setHud() {
+    var L = curLevel();
+    $('lvlTag').textContent = 'Level ' + prog.level + ' · ' + (cleared ? 'Cleared ✓' : Math.min(score, L.goal) + ' / ' + L.goal);
+  }
+
+  function setLevel(n) {
+    prog.level = clamp(n, 1, Math.min(MAX_LEVEL, prog.maxLevel));
+    saveProg();
+    applyTheme(curLevel().theme);
+    reset();
+  }
+
+  function reset() {
+    pipes.forEach(function (p) { scene.remove(p.group); });
+    pipes.length = 0;
+    score = 0; by = 0; vy = 0;
+    cleared = false;
+    lastGapY = 0.6;
+    state = 'ready';
+    bird.rotation.set(0, 0, 0);
+    $('score').textContent = '0';
+    $('score').classList.remove('on');
+    $('lvlTag').classList.remove('on');
+    $('over').classList.remove('show');
+    $('ready').classList.add('show');
+    $('dock').classList.add('show');
+    refreshReady();
+  }
+
+  function spawnPipe() {
+    var L = curLevel();
+    var lo = -2.2 + L.move, hi = 3.4 - L.move;
+    lastGapY = clamp(lastGapY + rand(-3, 3), lo, hi);
+    var amp = L.move && Math.random() < 0.75 ? L.move * rand(0.6, 1) : 0;
+    pipes.push(makePipe(SPAWN_X, lastGapY, L.gap, amp));
+  }
+
+  function startGame() {
+    state = 'playing';
+    runMult = prog.speedMult;
+    cleared = false;
+    $('ready').classList.remove('show');
+    $('dock').classList.remove('show');
+    $('score').classList.add('on');
+    $('lvlTag').classList.add('on');
+    setHud();
+    spawnPipe();
+  }
+
+  function flap() {
+    vy = FLAP_V;
+    wingPhase += 1.6;
+    sfx.flap();
+    burst(3, -0.7, by - 0.25, '#ffffff', 2.2, 0.11, 0.45);
+  }
+
+  function bumpScore() {
+    $('score').textContent = score;
+    if (reduceMotion) return;
+    $('score').classList.remove('bump');
+    void $('score').offsetWidth;
+    $('score').classList.add('bump');
+  }
+    function levelComplete() {
+    cleared = true;
+    var msg = 'Level ' + prog.level + ' complete!';
+    if (prog.level < MAX_LEVEL) {
+      if (prog.maxLevel === prog.level) {
+        prog.maxLevel = prog.level + 1;
+        saveProg();
+        msg += ' Level ' + prog.maxLevel + ' unlocked';
+        pushScores();
+      }
+    } else {
+      msg += ' You beat them all!';
+    }
+    toast(msg);
+    sfx.level();
+  }
+
+  function die(hitPipe) {
+    if (state === 'dead') return;
+    state = 'dead';
+    if (hitPipe) vy = Math.max(vy, 3.5);
+    sfx.hit(); sfx.die();
+    burst(16, 0, by, '#ffcf2e', 6, 0.16, 0.9);
+    burst(8, 0, by, '#ffffff', 5, 0.12, 0.7);
+    if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+    if (!reduceMotion) {
+      $('flash').classList.add('on');
+      requestAnimationFrame(function () { requestAnimationFrame(function () { $('flash').classList.remove('on'); }); });
+      shake = 0.45;
+    }
+
+    var ranked = runMult >= 1;
+    var isNew = false;
+    if (ranked && score > prog.best[prog.level]) {
+      prog.best[prog.level] = score;
+      isNew = true;
+    }
+    saveProg();
+    deadTapAt = performance.now() + 700;
+
+    var L = curLevel();
+    var scoreAtDeath = score;
+    var lvlAtDeath = prog.level;
+    var canNext = cleared && prog.level < MAX_LEVEL;
+
+    $('overTitle').textContent = cleared ? 'Level complete!' : 'Game over';
+    $('finalScore').textContent = scoreAtDeath;
+    $('finalBest').textContent = prog.best[lvlAtDeath];
+    $('newbest').textContent = isNew && scoreAtDeath > 0 ? 'New best on this level!' : '';
+    var medal = $('medal');
+    medal.className = 'medal';
+    if (scoreAtDeath >= L.goal * 1.5) medal.className = 'medal on gold';
+    else if (scoreAtDeath >= L.goal) medal.className = 'medal on silver';
+    else if (scoreAtDeath >= Math.ceil(L.goal / 2)) medal.className = 'medal on bronze';
+    $('nextLevel').classList.toggle('on', canNext);
+    var rank = $('rankLine');
+    if (!ranked) {
+      rank.textContent = 'Practice run · play at 1.0× or faster to rank';
+    } else if (cloud.db && cloud.uid) {
+      rank.textContent = cloud.canWrite ? 'Checking your rank…' : 'Leaderboard is view-only for you';
+    } else {
+      rank.textContent = 'Best scores are saved on this device';
+    }
+
+    setTimeout(function () {
+      if (state !== 'dead') return;
+      $('over').classList.add('show');
+      $('dock').classList.add('show');
+      $('score').classList.remove('on');
+      $('lvlTag').classList.remove('on');
+    }, 550);
+
+    if (ranked && isNew) {
+      pushScores().then(function (ok) { return ok ? fetchRank() : null; }).then(function (r) {
+        if (r && state === 'dead') rank.textContent = 'Overall rank #' + r + ' · ' + totalPoints() + ' pts';
+        else if (state === 'dead' && cloud.db && cloud.uid && cloud.canWrite) rank.textContent = 'Overall: ' + totalPoints() + ' pts';
+      });
+    } else if (ranked && cloud.db && cloud.uid && cloud.canWrite) {
+      fetchRank().then(function (r) {
+        if (r && state === 'dead') rank.textContent = 'Overall rank #' + r + ' · ' + totalPoints() + ' pts';
+        else if (state === 'dead') rank.textContent = '';
+      });
+    }
+  }
+
+  function circleRect(cx, cy, r, x1, y1, x2, y2) {
+    var nx = clamp(cx, x1, x2), ny = clamp(cy, y1, y2);
+    var dx = cx - nx, dy = cy - ny;
+    return dx * dx + dy * dy < r * r;
+  }
+  function hitsPipe(p) {
+    var x = p.x;
+    if (Math.abs(x) > LIP_HW + BIRD_R + 0.2) return false;
+    var gb = p.gapY - p.gap / 2, gt = p.gapY + p.gap / 2;
+    if (circleRect(0, by, BIRD_R, x - PIPE_HW, -60, x + PIPE_HW, gb - LIP_H)) return true;
+    if (circleRect(0, by, BIRD_R, x - LIP_HW, gb - LIP_H, x + LIP_HW, gb)) return true;
+    if (circleRect(0, by, BIRD_R, x - PIPE_HW, gt + LIP_H, x + PIPE_HW, 80)) return true;
+    if (circleRect(0, by, BIRD_R, x - LIP_HW, gt, x + LIP_HW, gt + LIP_H)) return true;
+    return false;
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Cloud: shared leaderboard (db) — page still works without it
+   * ------------------------------------------------------------------ */
+  var cloud = { db: null, user: null, uid: null, canWrite: false, ready: false };
+  var nameCache = {};
+
+  function initCloud() {
+    if (!window.claude || typeof window.claude.use !== 'function') return;
+    (async function () {
+      try {
+        cloud.user = await window.claude.use('user');
+        cloud.db = await window.claude.use('db');
+        if (cloud.user) {
+          cloud.uid = await cloud.user.id();
+          var cw = await cloud.user.can('data.write');
+          cloud.canWrite = cw !== false;
+        }
+        if (cloud.db && cloud.uid) {
+          var snap = await cloud.db.doc('scores/' + cloud.uid).get();
+          if (snap.exists) mergeRemote(snap.data() || {});
+          else if (totalPoints() > 0 || prog.maxLevel > 1) pushScores();
+        }
+        cloud.ready = true;
+        refreshReady();
+        if ($('sheet-board').classList.contains('open')) openBoardData();
+      } catch (e) { cloud.ready = true; }
+    })();
+  }
+
+  function mergeRemote(d) {
+    var changed = false;
+    for (var i = 1; i <= MAX_LEVEL; i++) {
+      var v = Math.max(0, parseInt(d['l' + i], 10) || 0);
+      if (v > prog.best[i]) { prog.best[i] = v; changed = true; }
+    }
+    var ml = clamp(parseInt(d.maxLevel, 10) || 1, 1, MAX_LEVEL);
+    if (ml > prog.maxLevel) { prog.maxLevel = ml; changed = true; }
+    if (!prog.nick && typeof d.nick === 'string' && d.nick) { prog.nick = d.nick.slice(0, 14); changed = true; }
+    if (changed) saveProg();
+  }
+
+  var writeChain = Promise.resolve();
+  function doWrite() {
+    if (!cloud.db || !cloud.uid || !cloud.canWrite) return Promise.resolve(false);
+    var d = { total: totalPoints(), maxLevel: prog.maxLevel, nick: prog.nick || '', updated: Date.now() };
+    for (var i = 1; i <= MAX_LEVEL; i++) d['l' + i] = prog.best[i];
+    return cloud.db.doc('scores/' + cloud.uid).set(d).then(function () { return true; }, function (e) {
+      if (e && e.code === 'invalid_argument') cloud.canWrite = false;
+      return false;
+    });
+  }
+  function pushScores() {
+    writeChain = writeChain.then(doWrite, doWrite);
+    return writeChain;
+  }
+
+  function fetchRank() {
+    if (!cloud.db || !cloud.uid || !cloud.canWrite) return Promise.resolve(null);
+    var mine = totalPoints();
+    if (mine <= 0) return Promise.resolve(null);
+    return cloud.db.collection('scores').where('total', '>', mine).limit(1000).get().then(function (s) {
+      return s.size + 1;
+    }, function () { return null; });
+                                                               }
+    /* ---------- Leaderboard sheet ---------- */
+  var lbTab = 'total';
+  var lbUnsub = null;
+  var lbDocs = [];
+  var lbState = 'idle'; // idle | loading | ok | error | none
+
+  (function buildTabs() {
+    var box = $('lbTabs');
+    var defs = [['total', 'Overall']];
+    for (var i = 1; i <= MAX_LEVEL; i++) defs.push(['l' + i, 'Lvl ' + i]);
+    defs.forEach(function (d) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tab' + (d[0] === lbTab ? ' on' : '');
+      b.textContent = d[1];
+      b.dataset.tab = d[0];
+      b.addEventListener('click', function () {
+        lbTab = d[0];
+        Array.prototype.forEach.call(box.children, function (c) { c.classList.toggle('on', c.dataset.tab === lbTab); });
+        subscribeLb();
+      });
+      box.appendChild(b);
+    });
+  })();
+
+  function myScoreForTab() {
+    if (lbTab === 'total') return totalPoints();
+    return prog.best[parseInt(lbTab.slice(1), 10)] || 0;
+  }
+  function tabUnit() { return lbTab === 'total' ? 'pts' : 'pipes'; }
+
+  function subscribeLb() {
+    if (lbUnsub) { try { lbUnsub(); } catch (e) {} lbUnsub = null; }
+    if (!cloud.db) { lbState = 'none'; renderLb(); return; }
+    lbState = 'loading';
+    lbDocs = [];
+    renderLb();
+    try {
+      lbUnsub = cloud.db.collection('scores').orderBy(lbTab, 'desc').limit(50).onSnapshot(function (snap) {
+        lbDocs = snap.docs.map(function (d) { return { id: d.id, data: d.data() || {} }; })
+          .filter(function (r) { return (r.data[lbTab] || 0) > 0; });
+        lbState = 'ok';
+        renderLb();
+        resolveNames();
+      }, function () { lbState = 'error'; renderLb(); });
+    } catch (e) { lbState = 'error'; renderLb(); }
+  }
+
+  function resolveNames() {
+    if (!cloud.user || typeof cloud.user.profiles !== 'function') return;
+    var ids = lbDocs.map(function (r) { return r.id; }).filter(function (id) { return !(id in nameCache); });
+    if (!ids.length) return;
+    cloud.user.profiles(ids).then(function (ps) {
+      ids.forEach(function (id) { nameCache[id] = (ps && ps[id] && ps[id].name) || ''; });
+      renderLb();
+    }, function () {});
+  }
+
+  function displayName(r) {
+    var n = r.data && typeof r.data.nick === 'string' ? r.data.nick.trim() : '';
+    return n || nameCache[r.id] || 'Player';
+  }
+
+  function renderLb() {
+    var list = $('lbList');
+    list.textContent = '';
+    var me = $('lbMe');
+    var myScore = myScoreForTab();
+
+    if (lbState === 'none') {
+      var e0 = document.createElement('div');
+      e0.className = 'lb-empty';
+      e0.textContent = 'The shared leaderboard needs a signed-in claude.ai viewer. Your scores are still saved on this device.';
+      list.appendChild(e0);
+      me.textContent = 'Your ' + (lbTab === 'total' ? 'total' : 'best') + ': ' + myScore + ' ' + tabUnit();
+      return;
+    }
+    if (lbState === 'loading') {
+      var e1 = document.createElement('div'); e1.className = 'lb-empty'; e1.textContent = 'Loading scores…';
+      list.appendChild(e1);
+      me.textContent = '';
+      return;
+    }
+    if (lbState === 'error') {
+      var e2 = document.createElement('div'); e2.className = 'lb-empty'; e2.textContent = 'Could not load the leaderboard. Try again in a moment.';
+      list.appendChild(e2);
+      me.textContent = '';
+      return;
+    }
+    if (!lbDocs.length) {
+      var e3 = document.createElement('div'); e3.className = 'lb-empty';
+      e3.textContent = 'No scores yet. Be the first on the board!';
+      list.appendChild(e3);
+    }
+    var myIdx = -1;
+    lbDocs.forEach(function (r, i) {
+      var isMe = r.id === cloud.uid;
+      if (isMe) myIdx = i;
+      var row = document.createElement('div');
+      row.className = 'lb-row' + (isMe ? ' me' : '') + (i < 3 ? ' top' + (i + 1) : '');
+      var rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '#' + (i + 1);
+      var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = displayName(r) + (isMe ? ' (you)' : '');
+      var sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = String(r.data[lbTab] || 0);
+      row.appendChild(rk); row.appendChild(nm); row.appendChild(sc);
+      list.appendChild(row);
+    });
+
+    if (myIdx >= 0) {
+      me.textContent = 'You are #' + (myIdx + 1) + ' · ' + (lbDocs[myIdx].data[lbTab] || 0) + ' ' + tabUnit();
+    } else if (myScore > 0) {
+      me.textContent = cloud.canWrite ? 'Your score: ' + myScore + ' ' + tabUnit() + ' · outside the top 50' : 'Your score: ' + myScore + ' ' + tabUnit() + ' (not shared)';
+    } else {
+      me.textContent = 'Play a ranked run to join the board';
+    }
+  }
+
+  function openBoardData() {
+    $('nickInput').value = prog.nick || '';
+    subscribeLb();
+  }
+  $('nickSave').addEventListener('click', function () {
+    var v = $('nickInput').value.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 14);
+    prog.nick = v;
+    saveProg();
+    $('nickSave').textContent = 'Saved ✓';
+    setTimeout(function () { $('nickSave').textContent = 'Save'; }, 1400);
+    if (cloud.db && cloud.uid && cloud.canWrite && (totalPoints() > 0 || v)) pushScores();
+  });
+
+  /* ---------- Levels sheet ---------- */
+  function renderLevels() {
+    var box = $('lvlList');
+    box.textContent = '';
+    for (var i = 1; i <= MAX_LEVEL; i++) {
+      (function (i) {
+        var L = LEVELS[i];
+        var locked = i > prog.maxLevel;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'lvl' + (i === prog.level ? ' on' : '');
+        b.disabled = locked;
+        var n = document.createElement('span'); n.className = 'lvl-n'; n.textContent = locked ? '🔒' : String(i); n.style.background = L.accent;
+        var m = document.createElement('span'); m.className = 'lvl-m';
+        var t = document.createElement('b'); t.textContent = L.name;
+        var s = document.createElement('small');
+        s.textContent = 'Reach ' + L.goal + ' · Best ' + prog.best[i] + (L.move ? ' · moving pipes' : '');
+        m.appendChild(t); m.appendChild(s);
+        b.appendChild(n); b.appendChild(m);
+        b.addEventListener('click', function () { closeSheets(); setLevel(i); });
+        box.appendChild(b);
+      })(i);
+    }
+                                                           }
+    /* ---------- Speed sheet ---------- */
+  var PRESETS = [['Chill', 0.7], ['Normal', 1.0], ['Fast', 1.3], ['Insane', 1.6]];
+  function renderSpeed() {
+    var m = prog.speedMult;
+    $('speedRange').value = String(m);
+    $('speedBig').textContent = fmtMult(m);
+    $('speedName').textContent = speedName(m);
+    $('speedNote').textContent = m >= 1
+      ? 'Ranked: your scores count on the leaderboard at this speed.'
+      : 'Practice: below 1.0× your scores are not ranked on the leaderboard.';
+    Array.prototype.forEach.call($('speedPresets').children, function (b) {
+      b.classList.toggle('on', Math.abs(parseFloat(b.dataset.v) - m) < 0.05);
+    });
+  }
+  (function buildPresets() {
+    var box = $('speedPresets');
+    PRESETS.forEach(function (p) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tab';
+      b.dataset.v = String(p[1]);
+      b.textContent = p[0] + ' ' + fmtMult(p[1]);
+      b.addEventListener('click', function () { setSpeed(p[1]); });
+      box.appendChild(b);
+    });
+  })();
+  function setSpeed(v) {
+    prog.speedMult = clamp(Math.round(v * 10) / 10, 0.6, 1.6);
+    saveProg();
+    renderSpeed();
+    refreshReady();
+  }
+  $('speedRange').addEventListener('input', function (e) { setSpeed(parseFloat(e.target.value)); });
+
+  /* ---------- Sheet plumbing ---------- */
+  function openSheet(name) {
+    if (state === 'playing') return;
+    closeSheets(true);
+    modal = true;
+    if (name === 'levels') renderLevels();
+    if (name === 'speed') renderSpeed();
+    $('sheet-' + name).classList.add('open');
+    if (name === 'board') openBoardData();
+  }
+  function closeSheets(silent) {
+    Array.prototype.forEach.call(document.querySelectorAll('.sheet-wrap'), function (w) { w.classList.remove('open'); });
+    if (lbUnsub) { try { lbUnsub(); } catch (e) {} lbUnsub = null; }
+    if (!silent) setTimeout(function () { modal = false; }, 50);
+    else modal = false;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
+    b.addEventListener('click', function () { openSheet(b.getAttribute('data-open')); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+    b.addEventListener('click', function () { closeSheets(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.sheet-wrap'), function (w) {
+    w.addEventListener('pointerdown', function (e) { if (e.target === w) closeSheets(); });
+  });
+
+  /* ---------- Mute ---------- */
+  function syncMute() {
+    $('mute').textContent = muted ? '🔇' : '🔊';
+    $('mute').setAttribute('aria-label', muted ? 'Turn sound on' : 'Turn sound off');
+  }
+  syncMute();
+  $('mute').addEventListener('click', function (e) {
+    e.stopPropagation();
+    muted = !muted;
+    try { localStorage.setItem('flappy3d-muted', muted ? '1' : '0'); } catch (err) {}
+    syncMute();
+    if (!muted) { audio(); tone(660, 660, 0.08, 'square', 0.08); }
+  });
+
+  /* ------------------------------------------------------------------ *
+   *  Input
+   * ------------------------------------------------------------------ */
+  function press() {
+    if (modal) return;
+    audio();
+    if (state === 'ready') { startGame(); flap(); }
+    else if (state === 'playing') { flap(); }
+    else if (state === 'dead' && performance.now() > deadTapAt) { reset(); }
+  }
+  window.addEventListener('pointerdown', function (e) {
+    var t = e.target;
+    if (t.closest && t.closest('button, input, .sheet-wrap, .dock')) return;
+    e.preventDefault();
+    press();
+  }, { passive: false });
+  window.addEventListener('keydown', function (e) {
+    if (e.target && e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter') {
+      if (modal) return;
+      e.preventDefault();
+      if (!e.repeat) press();
+    }
+  });
+  $('again').addEventListener('click', function () { if (state === 'dead') reset(); });
+  $('nextLevel').addEventListener('click', function () { if (state === 'dead') setLevel(prog.level + 1); });
+  document.addEventListener('touchmove', function (e) {
+    if (e.target.closest && e.target.closest('.sheet-wrap')) return;
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  /* ------------------------------------------------------------------ *
+   *  Resize
+   * ------------------------------------------------------------------ */
+  var camDist = 20;
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    var t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    var needH = 18, needW = 11.5;
+    camDist = Math.max(needH / (2 * t), needW / (2 * t * camera.aspect));
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 200); });
+  resize();
+
+  /* ------------------------------------------------------------------ *
+   *  Update loop
+   * ------------------------------------------------------------------ */
+  function update(dt) {
+    time += dt;
+    var L = curLevel();
+
+    clouds.forEach(function (c) {
+      c.position.x -= c.userData.v * dt;
+      if (c.position.x < -75) c.position.x += 150;
+    });
+
+    var worldSpeed = state === 'playing' ? speed : (state === 'ready' ? 3 : 0);
+    if (state !== 'dead') {
+      groundScroll += worldSpeed * dt / 4;
+      groundTex.offset.x = groundScroll;
+      hills.forEach(function (h) {
+        h.position.x -= worldSpeed * 0.08 * dt;
+        if (h.position.x < -95) h.position.x += 190;
+      });
+    }
+
+    if (state === 'ready') {
+      by = Math.sin(time * 3.2) * 0.35;
+      vy = 0;
+      bird.rotation.z = Math.sin(time * 3.2 + 1) * 0.08;
+      wingPhase += dt * 10;
+    } else if (state === 'playing') {
+      vy = Math.max(vy - GRAVITY * dt, MAX_FALL);
+      by += vy * dt;
+      if (by > CEILING) { by = CEILING; vy = Math.min(vy, 0); }
+      var tilt = clamp(vy * 0.075, -1.15, 0.5);
+      bird.rotation.z += (tilt - bird.rotation.z) * Math.min(1, dt * 14);
+      wingPhase += dt * (vy > 0 ? 24 : 9);
+    } else {
+      vy = Math.max(vy - GRAVITY * dt, MAX_FALL);
+      by += vy * dt;
+      var floor = GROUND_Y + BIRD_R;
+      if (by <= floor) { by = floor; vy = 0; }
+      bird.rotation.z += (-1.35 - bird.rotation.z) * Math.min(1, dt * 7);
+    }
+    bird.position.set(0, by, 0);
+
+    var flapAng = state === 'dead' ? 0.9 : Math.sin(wingPhase) * 0.75 + 0.1;
+    wings.forEach(function (w) { w.rotation.x = -w.userData.s * flapAng; });
+
+    if (state === 'playing') {
+      speed = (L.base + Math.min(score * L.ramp, 2.0)) * runMult;
+      for (var i = pipes.length - 1; i >= 0; i--) {
+        var p = pipes[i];
+        p.x -= speed * dt;
+        if (p.amp) p.gapY = p.baseY + p.amp * Math.sin(time * 1.5 + p.phase);
+        p.group.position.set(p.x, p.gapY, 0);
+
+        if (!p.scored && p.x < -0.1) {
+          p.scored = true;
+          score++;
+          bumpScore();
+          sfx.score();
+          setHud();
+          if (!cleared && score >= L.goal) { levelComplete(); setHud(); }
+        }
+        if (hitsPipe(p)) die(true);
+        if (p.x < -14) {
+          scene.remove(p.group);
+          pipes.splice(i, 1);
+        }
+      }
+      var last = pipes[pipes.length - 1];
+      if (!last || last.x <= SPAWN_X - SPACING) spawnPipe();
+
+      if (by - BIRD_R <= GROUND_Y) {
+        by = GROUND_Y + BIRD_R;
+        die(false);
+      }
+    }
+
+    updateParts(dt);
+
+    if (shake > 0) shake = Math.max(0, shake - dt);
+    var sh = shake * 0.6;
+    camera.position.set(
+      1.0 + (sh ? (Math.random() - 0.5) * sh : 0),
+      3.2 + by * 0.12 + (sh ? (Math.random() - 0.5) * sh : 0),
+      camDist
+    );
+    camera.lookAt(3.0, 0.3 + by * 0.2, 0);
+  }
+
+  var lastT = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min((now - lastT) / 1000, 0.033);
+    lastT = now;
+    if (dt <= 0) return;
+    update(dt);
+    renderer.render(scene, camera);
+  }
+  document.addEventListener('visibilitychange', function () { lastT = performance.now(); });
+
+  /* ------------------------------------------------------------------ *
+   *  Boot
+   * ------------------------------------------------------------------ */
+  applyTheme(curLevel().theme);
+  reset();
+  requestAnimationFrame(frame);
+  initCloud();
+})();
+</script>
+</body>
+</html>
